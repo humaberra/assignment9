@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import { getAllBooks, getBookById } from './booksStore.js';
-import { parseId } from './validate.js';
+import { getAllBooks, getBookById, findDuplicate, createBook } from './booksStore.js';
+import { parseId, validateBook } from './validate.js';
 
 const app = express();
 
@@ -26,6 +26,11 @@ function sendInvalidId(res, rawId) {
 function sendBookNotFound(res, id) {
   return res.status(404).json({ error: `Book with id ${id} not found` });
 }
+function sendDuplicate(res, duplicate) {
+  return res.status(409).json({
+    error: `A book titled "${duplicate.title}" by ${duplicate.author} already exists (id ${duplicate.id})`,
+  });
+}
 
 // ---------- Routes ----------
 
@@ -48,6 +53,22 @@ app.get('/api/books/:id', async (req, res) => {
   }
 
   res.status(200).json(book);
+});
+
+// POST /api/books -> create a book from a complete body
+app.post('/api/books', async (req, res) => {
+  const result = validateBook(req.body);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  const duplicate = await findDuplicate(result.book.title, result.book.author);
+  if (duplicate) {
+    return sendDuplicate(res, duplicate);
+  }
+
+  const created = await createBook(result.book);
+  res.status(201).location(`/api/books/${created.id}`).json(created);
 });
 
 // 404 fallback: any /api request that matched no route
