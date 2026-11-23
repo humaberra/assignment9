@@ -1,7 +1,14 @@
 import express from 'express';
 import cors from 'cors';
-import { getAllBooks, getBookById, findDuplicate, createBook } from './booksStore.js';
-import { parseId, validateBook } from './validate.js';
+import {
+  getAllBooks,
+  getBookById,
+  findDuplicate,
+  createBook,
+  replaceBook,
+} from './booksStore.js';
+import { parseId, validateBook, isPlainObject, pickBookFields } from './validate.js';
+
 
 const app = express();
 
@@ -69,6 +76,65 @@ app.post('/api/books', async (req, res) => {
 
   const created = await createBook(result.book);
   res.status(201).location(`/api/books/${created.id}`).json(created);
+});
+// PUT /api/books/:id -> replace a book with a complete body
+app.put('/api/books/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return sendInvalidId(res, req.params.id);
+  }
+
+  const existing = await getBookById(id);
+  if (!existing) {
+    return sendBookNotFound(res, id);
+  }
+
+  const result = validateBook(req.body);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  const duplicate = await findDuplicate(result.book.title, result.book.author, id);
+  if (duplicate) {
+    return sendDuplicate(res, duplicate);
+  }
+
+  const updated = await replaceBook(id, result.book);
+  res.status(200).json(updated);
+});
+
+// PATCH /api/books/:id -> change only the fields sent
+app.patch('/api/books/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return sendInvalidId(res, req.params.id);
+  }
+
+  const existing = await getBookById(id);
+  if (!existing) {
+    return sendBookNotFound(res, id);
+  }
+
+  if (!isPlainObject(req.body)) {
+    return res.status(400).json({ error: 'Request body must be a JSON object' });
+  }
+
+  // Merge: existing values + only the known fields that were sent (new object)
+  const merged = { ...existing, ...pickBookFields(req.body) };
+
+  // The merged book must pass the same validation as a complete book
+  const result = validateBook(merged);
+  if (result.error) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  const duplicate = await findDuplicate(result.book.title, result.book.author, id);
+  if (duplicate) {
+    return sendDuplicate(res, duplicate);
+  }
+
+  const updated = await replaceBook(id, result.book);
+  res.status(200).json(updated);
 });
 
 // 404 fallback: any /api request that matched no route

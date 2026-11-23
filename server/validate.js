@@ -1,7 +1,7 @@
 // Validation helpers. No libraries: everything is written by hand.
 
 export const GENRES = ['fiction', 'non-fiction', 'science', 'history', 'fantasy', 'other'];
-
+export const BOOK_FIELDS = ['title', 'author', 'year', 'genre', 'read', 'rating'];
 const MIN_YEAR = 1000;
 const MAX_TEXT_LENGTH = 100;
 
@@ -83,4 +83,11 @@ export function validateBook(input) {
       rating,
     },
   };
+}
+// For PATCH: keep only known book fields that were actually sent.
+// Unknown fields (and "id") are dropped. Builds a new object.
+export function pickBookFields(body) {
+  return Object.fromEntries(
+    BOOK_FIELDS.filter((field) => Object.hasOwn(body, field)).map((field) => [field, body[field]])
+  );
 }
