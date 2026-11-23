@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# environment files (never commit)
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
