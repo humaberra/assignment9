@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import { getAllBooks, getBookById } from './booksStore.js';
+import { parseId } from './validate.js';
 
 const app = express();
 
@@ -13,7 +15,40 @@ app.use(cors({ origin: CLIENT_ORIGIN }));
 // Parse JSON request bodies (must be registered BEFORE the routes)
 app.use(express.json());
 
-// ---------- Routes will go here ----------
+// ---------- Helpers ----------
+
+function sendInvalidId(res, rawId) {
+  return res
+    .status(400)
+    .json({ error: `Invalid id "${rawId}": id must be a positive integer` });
+}
+
+function sendBookNotFound(res, id) {
+  return res.status(404).json({ error: `Book with id ${id} not found` });
+}
+
+// ---------- Routes ----------
+
+// GET /api/books -> list (query options will be added later)
+app.get('/api/books', async (req, res) => {
+  const books = await getAllBooks();
+  res.status(200).json(books);
+});
+
+// GET /api/books/:id -> one book
+app.get('/api/books/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return sendInvalidId(res, req.params.id);
+  }
+
+  const book = await getBookById(id);
+  if (!book) {
+    return sendBookNotFound(res, id);
+  }
+
+  res.status(200).json(book);
+});
 
 // 404 fallback: any /api request that matched no route
 app.use('/api', (req, res) => {
