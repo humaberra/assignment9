@@ -6,9 +6,9 @@ import {
   findDuplicate,
   createBook,
   replaceBook,
+  deleteBook,
 } from './booksStore.js';
 import { parseId, validateBook, isPlainObject, pickBookFields } from './validate.js';
-
 
 const app = express();
 
@@ -33,6 +33,7 @@ function sendInvalidId(res, rawId) {
 function sendBookNotFound(res, id) {
   return res.status(404).json({ error: `Book with id ${id} not found` });
 }
+
 function sendDuplicate(res, duplicate) {
   return res.status(409).json({
     error: `A book titled "${duplicate.title}" by ${duplicate.author} already exists (id ${duplicate.id})`,
@@ -77,6 +78,7 @@ app.post('/api/books', async (req, res) => {
   const created = await createBook(result.book);
   res.status(201).location(`/api/books/${created.id}`).json(created);
 });
+
 // PUT /api/books/:id -> replace a book with a complete body
 app.put('/api/books/:id', async (req, res) => {
   const id = parseId(req.params.id);
@@ -135,6 +137,21 @@ app.patch('/api/books/:id', async (req, res) => {
 
   const updated = await replaceBook(id, result.book);
   res.status(200).json(updated);
+});
+
+// DELETE /api/books/:id -> delete a book (204, no body)
+app.delete('/api/books/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    return sendInvalidId(res, req.params.id);
+  }
+
+  const deleted = await deleteBook(id);
+  if (!deleted) {
+    return sendBookNotFound(res, id);
+  }
+
+  res.status(204).end();
 });
 
 // 404 fallback: any /api request that matched no route
