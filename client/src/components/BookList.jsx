@@ -22,7 +22,12 @@ export default function BookList({ books, loading, error, ...itemProps }) {
   return (
     <ul className="book-list">
       {books.map((book) => (
-        <BookItem key={book.id} book={book} {...itemProps} />
+                <BookItem
+          key={book.id}
+          book={book}
+          {...itemProps}
+          busy={itemProps.busyId === book.id}
+        />
       ))}
     </ul>
   );
