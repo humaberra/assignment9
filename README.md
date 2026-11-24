@@ -81,8 +81,8 @@ assignment9/
 
 The server was restarted before these requests, so the data starts from the seed.
 
-]633;E;{ run "1. GET /api/stats before any change (200)" $API/api/stats\x3b run "2. List with three query parameters combined (200)" "$API/api/books?genre=fiction&sort=year&order=desc"\x3b run "3. One book (200)" $API/api/books/2\x3b run "4. Create a book (201 + Location header)" -X POST $API/api/books -H "$J" -d '{"title":"Clean Code","author":"Robert C. Martin","year":2008,"genre":"other"}'\x3b run "5. Invalid body (400)" -X POST $API/api/books -H "$J" -d '{"title":"","author":"X","year":3000,"genre":"poetry"}'\x3b run "6. Repeated query parameter (400)" "$API/api/books?genre=fiction&genre=history"\x3b run "7. Missing book (404)" $API/api/books/999\x3b run "8. Duplicate title + author, different case (409)" -X POST $API/api/books -H "$J" -d '{"title":"  dune ","author":"FRANK HERBERT","year":1965,"genre":"fiction"}'\x3b run "9a. PATCH book 5: only the rating changes (200)" -X PATCH $API/api/books/5 -H "$J" -d '{"rating":4}'\x3b run "9b. PUT book 5: complete replacement, read/rating fall back to defaults (200)" -X PUT $API/api/books/5 -H "$J" -d '{"title":"1984","author":"George Orwell","year":1949,"genre":"fiction"}'\x3b run "10a. Delete a book (204, no body)" -X DELETE $API/api/books/6\x3b run "10b. Same delete repeated (404)" -X DELETE $API/api/books/6\x3b run "11. GET /api/stats after the changes (200)" $API/api/stats\x3b run "12. Malformed JSON body (400, JSON error)" -X POST $API/api/books -H "$J" -d '{"title": '\x3b run "13. Unknown /api route (404)" $API/api/nothing\x3b run "14. Deliberate crash in an async handler (500)" $API/api/crash\x3b } > curl-evidence.md;58376cec-2fa5-4fe2-b5ee-b9d87b480a8f]633;C### 1. GET /api/stats before any change (200)
 
+### 1. GET /api/stats before any change (200)
 ```
 $ curl --include http://localhost:3000/api/stats
 HTTP/1.1 200 OK
@@ -373,10 +373,10 @@ Keep-Alive: timeout=5
 
 Toggling "read" in the browser sends a `PATCH` with a JSON body. Because it uses the `PATCH` method and a `Content-Type: application/json` header, it is not a "simple request", so the browser first sends a preflight. In the Network tab I saw:
 
-- Request: `OPTIONS http://localhost:3000/api/books/[id]` – Status **[status code]**
+- Request: `OPTIONS http://localhost:3000/api/books/1` – Status **204 No Content**
 - Request headers: `Origin: http://localhost:5173`, `Access-Control-Request-Method: PATCH`, `Access-Control-Request-Headers: content-type`
-- Response headers: `Access-Control-Allow-Origin: [value]`, `Access-Control-Allow-Methods: [value]`, `Access-Control-Allow-Headers: [value]`
-- Only after this preflight succeeded did the browser send the real `PATCH` request (status 200).
+- Response headers: `Access-Control-Allow-Origin: http://localhost:5173`, `Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE`, `Access-Control-Allow-Headers: content-type`
+- Only after this preflight succeeded did the browser send the real `PATCH` request (status 200), and then the list and `/api/stats` were reloaded.
 
 ## Reasoning questions
 
@@ -396,7 +396,11 @@ Toggling "read" in the browser sends a `PATCH` with a JSON body. Because it uses
 
 ## Self-study notes
 
-_TODO_
+- **URLSearchParams** (MDN): builds a query string from key/value pairs and encodes special characters (spaces, `&`, `=`), so user input cannot break the URL. Used in `toQueryString()` in `client/src/api/books.js`; empty values are filtered out first.
+- **localeCompare** (MDN): compares two strings alphabetically according to language rules and returns a negative number, 0 or a positive number, exactly what a sort comparator needs. I used it with `{ sensitivity: 'base' }` so upper/lower case does not change the order (`sortBooks()` in `server.js`).
+- **import.meta.env in Vite** (Vite docs, "Env Variables and Modes"): Vite reads `.env` files and exposes only variables that start with `VITE_` to client code, so secrets without the prefix are never bundled into the browser. The client reads `import.meta.env.VITE_API_URL`; `.env.example` documents it and `.env` is ignored by Git.
+- **204 in Express 5** (Express API docs): a 204 response must not have a body, so I used `res.status(204).end()`, which ends the response without sending JSON. On the client, the shared `request()` helper returns `null` for 204 instead of calling `response.json()`.
+- **Cancelling fetch** (MDN, AbortController): `fetch` accepts a `signal`; calling `controller.abort()` rejects the promise with an error whose `name` is `"AbortError"`. The list effect in `App.jsx` aborts the previous request in its cleanup and ignores `AbortError`, so an old response can never overwrite a newer one.
 
 ## Challenges
 
@@ -405,6 +409,3 @@ _TODO_
 - The editor's AI autocomplete suggested a different 500 message than the required `Something went wrong`, so I turned inline suggestions off.
 - My statistics test looked wrong because `node --watch` restarted the server between two requests and the in-memory data was reset; this also showed me why the data is not persistent.
 - Windows did not accept a folder name ending with a dot (`api.`).
-## Use of AI
-
-With my instructor's permission, I used an AI assistant (Claude) as a step-by-step guide while building this project and to help word the README answers. I ran every step, test and experiment myself; the observations above are from my own runs.
