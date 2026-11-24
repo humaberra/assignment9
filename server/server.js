@@ -86,6 +86,31 @@ function paginate(books, page, limit) {
   return books.slice(start, start + limit); // slice returns a new array
 }
 
+// Computes statistics from the CURRENT data (nothing is stored separately)
+function computeStats(books) {
+  const readCount = books.filter((book) => book.read).length;
+  const ratings = books.filter((book) => book.rating !== null).map((book) => book.rating);
+
+  const averageRating =
+    ratings.length === 0
+      ? null
+      : Math.round((ratings.reduce((sum, r) => sum + r, 0) / ratings.length) * 10) / 10;
+
+  // Only genres that have at least one book appear (built immutably)
+  const byGenre = books.reduce(
+    (counts, book) => ({ ...counts, [book.genre]: (counts[book.genre] ?? 0) + 1 }),
+    {}
+  );
+
+  return {
+    total: books.length,
+    read: readCount,
+    unread: books.length - readCount,
+    averageRating,
+    byGenre,
+  };
+}
+
 // ---------- Routes ----------
 
 // GET /api/books -> list with query options
@@ -205,6 +230,20 @@ app.delete('/api/books/:id', async (req, res) => {
   }
 
   res.status(204).end();
+});
+
+// GET /api/stats -> statistics computed on every request
+app.get('/api/stats', async (req, res) => {
+  const books = await getAllBooks();
+  res.status(200).json(computeStats(books));
+});
+
+// GET /api/crash -> deliberately throws inside an async handler.
+// Kept on purpose (documented in the README) to prove that Express 5
+// forwards rejected promises to the error-handling middleware.
+app.get('/api/crash', async () => {
+  await getAllBooks();
+  throw new Error('Deliberate crash to test the error-handling middleware');
 });
 
 // 404 fallback: any /api request that matched no route
