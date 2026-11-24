@@ -1,7 +1,8 @@
 import BookItem from './BookItem.jsx';
 
-// Shows the loading, error and empty states, or the list itself
-export default function BookList({ books, loading, error }) {
+// Shows the loading, error and empty states, or the list itself.
+// Any extra props (onEdit, onDelete, ...) are passed down to each BookItem.
+export default function BookList({ books, loading, error, ...itemProps }) {
   if (loading) {
     return <p className="muted">Loading books…</p>;
   }
@@ -21,7 +22,7 @@ export default function BookList({ books, loading, error }) {
   return (
     <ul className="book-list">
       {books.map((book) => (
-        <BookItem key={book.id} book={book} />
+        <BookItem key={book.id} book={book} {...itemProps} />
       ))}
     </ul>
   );
