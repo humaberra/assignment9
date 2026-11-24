@@ -380,7 +380,19 @@ Toggling "read" in the browser sends a `PATCH` with a JSON body. Because it uses
 
 ## Reasoning questions
 
-_TODO_
+**1. Parameters.** The `id` identifies one specific resource, so it belongs in the path: `/api/books/3` *is* book 3, and PUT, PATCH and DELETE act on that exact address. `genre` and `sort` do not name a resource; they are optional ways to view the same collection (`/api/books`), so they are query parameters and can be combined or left out. If `id` were in the query string (`/api/books?id=3`), every book would share the same URL, the route could not tell "list" from "one book", and a missing book would look like an empty filter result instead of a clear `404`.
+
+**2. Body parsing (experiment).** I moved `app.use(express.json())` below the routes and sent a valid `POST /api/books`. The server answered `400 {"error":"Request body must be a JSON object"}`, because `req.body` was `undefined`: middleware runs in the order it is registered, so the JSON parser had not run yet when the route handler read the body.
+
+**3. One response (experiment).** I removed the `return` before `sendBookNotFound(res, id)` in `GET /api/books/:id` and requested `/api/books/999`. curl still received the `404`, but the handler kept running and reached `res.status(200).json(book)`, so the server terminal showed an `ERR_HTTP_HEADERS_SENT` error ("Cannot set headers after they are sent to the client"). Sending a response does not stop the function; only `return` does, which is why every early response needs it.
+
+**4. PUT and PATCH.** PATCH is the better choice when only one or two fields change, for example ticking "read" or choosing a rating in the list: the client sends just `{"rating": 4}` and the rest of the book is kept. PUT is the better choice in the edit form, where the user sees and submits the whole book, so the client sends a complete replacement. The curl evidence (9a/9b) shows the difference: after PUT without `read` and `rating`, those fields went back to their defaults.
+
+**5. CORS (experiment).** With `CLIENT_ORIGIN=http://localhost:9999`, the page showed an error and the browser console reported that the request was blocked by CORS policy because the `Access-Control-Allow-Origin` header did not match `http://localhost:5173`. The server printed nothing (it does not log requests) and still answered normally; it was the browser that refused to give the response to JavaScript. curl still works because CORS is a rule enforced by browsers to protect users, not a server-side firewall, and curl does not apply it.
+
+**6. Validation.** Client-side checks only improve the user experience; anyone can bypass them with curl, Postman, the browser console or a modified client. Some rules, such as the duplicate check, can only be decided by the server because only it has all the data. The server owns the data, so it must validate every request itself.
+
+**7. State (experiment).** Every time the server restarted (including automatic restarts by `node --watch`), all added, edited and deleted books were lost and the list went back to the 7 seed books. The data lives only in the memory of the Node.js process, in a JavaScript array inside `booksStore.js`. To keep it, the data must be stored outside the process, for example in a database or a file.
 
 ## Self-study notes
 
@@ -388,4 +400,11 @@ _TODO_
 
 ## Challenges
 
-_TODO_
+- `git push` failed twice with "Could not connect to server" because of my VPN (Cloudflare WARP); retrying the push solved it.
+- While updating the imports I left an old import line in `server.js`, which caused `SyntaxError: Identifier 'getAllBooks' has already been declared`. `node --check` helped me find the exact line. Another time I had accidentally deleted `const app = express();` (`app is not defined`).
+- The editor's AI autocomplete suggested a different 500 message than the required `Something went wrong`, so I turned inline suggestions off.
+- My statistics test looked wrong because `node --watch` restarted the server between two requests and the in-memory data was reset; this also showed me why the data is not persistent.
+- Windows did not accept a folder name ending with a dot (`api.`).
+## Use of AI
+
+With my instructor's permission, I used an AI assistant (Claude) as a step-by-step guide while building this project and to help word the README answers. I ran every step, test and experiment myself; the observations above are from my own runs.
