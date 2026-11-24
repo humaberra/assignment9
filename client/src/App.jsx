@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getBooks } from './api/books.js';
+import BookFilters from './components/BookFilters.jsx';
 import BookList from './components/BookList.jsx';
+
+const INITIAL_FILTERS = { q: '', genre: '', read: '', sort: '', order: 'asc' };
 
 export default function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
 
-  // Load the list from the server.
-  // The cleanup aborts the request, so a stale response never overwrites a newer one.
+  // Every filter change requests a NEW list from the server.
+  // The cleanup aborts the previous request, so a stale response never wins.
   useEffect(() => {
     const controller = new AbortController();
 
@@ -16,7 +20,7 @@ export default function App() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getBooks({}, controller.signal);
+        const data = await getBooks(filters, controller.signal);
         setBooks(data);
       } catch (err) {
         if (err.name === 'AbortError') {
@@ -32,11 +36,12 @@ export default function App() {
 
     loadBooks();
     return () => controller.abort();
-  }, []);
+  }, [filters]);
 
   return (
     <div className="app">
       <h1>Reading List</h1>
+      <BookFilters filters={filters} onChange={setFilters} />
       <BookList books={books} loading={loading} error={error} />
     </div>
   );
