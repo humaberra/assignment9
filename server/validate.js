@@ -91,3 +91,42 @@ export function pickBookFields(body) {
     BOOK_FIELDS.filter((field) => Object.hasOwn(body, field)).map((field) => [field, body[field]])
   );
 }
+// ---------- Query options for GET /api/books ----------
+
+const LIST_QUERY_PARAMS = ['genre', 'read', 'q', 'sort', 'order', 'limit', 'page'];
+
+// Returns { options } with clean values, or { error } with a message.
+// Query values are strings; a repeated parameter arrives as an array.
+export function parseListQuery(query) {
+  const repeated = LIST_QUERY_PARAMS.filter((name) => Array.isArray(query[name]));
+  if (repeated.length > 0) {
+    return { error: `Query parameter must not be repeated: ${repeated.join(', ')}` };
+  }
+
+  const errors = [];
+  const { genre, read, q } = query;
+
+  if (genre !== undefined && !GENRES.includes(genre)) {
+    errors.push(`genre must be one of: ${GENRES.join(', ')}`);
+  }
+
+  if (read !== undefined && read !== 'true' && read !== 'false') {
+    errors.push('read must be "true" or "false"');
+  }
+
+  if (q !== undefined && q.trim().length > MAX_TEXT_LENGTH) {
+    errors.push(`q must be at most ${MAX_TEXT_LENGTH} characters`);
+  }
+
+  if (errors.length > 0) {
+    return { error: errors.join('; ') };
+  }
+
+  return {
+    options: {
+      genre: genre ?? null,
+      read: read === undefined ? null : read === 'true',
+      q: q?.trim().toLowerCase() || null, // empty search = no filter
+    },
+  };
+}

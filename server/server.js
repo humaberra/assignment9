@@ -8,7 +8,13 @@ import {
   replaceBook,
   deleteBook,
 } from './booksStore.js';
-import { parseId, validateBook, isPlainObject, pickBookFields } from './validate.js';
+import {
+  parseId,
+  validateBook,
+  isPlainObject,
+  pickBookFields,
+  parseListQuery,
+} from './validate.js';
 
 const app = express();
 
@@ -40,12 +46,30 @@ function sendDuplicate(res, duplicate) {
   });
 }
 
+// Keeps only books matching every given filter (filter returns a new array)
+function filterBooks(books, { genre, read, q }) {
+  return books.filter(
+    (book) =>
+      (genre === null || book.genre === genre) &&
+      (read === null || book.read === read) &&
+      (q === null ||
+        book.title.toLowerCase().includes(q) ||
+        book.author.toLowerCase().includes(q))
+  );
+}
+
 // ---------- Routes ----------
 
-// GET /api/books -> list (query options will be added later)
+// GET /api/books -> list with query options
 app.get('/api/books', async (req, res) => {
+  const parsed = parseListQuery(req.query);
+  if (parsed.error) {
+    return res.status(400).json({ error: parsed.error });
+  }
+
   const books = await getAllBooks();
-  res.status(200).json(books);
+  const result = filterBooks(books, parsed.options);
+  res.status(200).json(result);
 });
 
 // GET /api/books/:id -> one book
