@@ -58,6 +58,34 @@ function filterBooks(books, { genre, read, q }) {
   );
 }
 
+// Sorts a COPY (toSorted) so the stored array is never changed.
+// Books without a rating always go last when sorting by rating.
+function sortBooks(books, sort, order) {
+  const direction = order === 'desc' ? -1 : 1;
+
+  return books.toSorted((a, b) => {
+    if (sort === 'rating') {
+      if (a.rating === null && b.rating === null) return a.id - b.id;
+      if (a.rating === null) return 1; // a goes after b
+      if (b.rating === null) return -1; // b goes after a
+      return (a.rating - b.rating) * direction || a.id - b.id;
+    }
+
+    if (sort === 'title' || sort === 'author') {
+      const byText = a[sort].localeCompare(b[sort], undefined, { sensitivity: 'base' });
+      return byText * direction || a.id - b.id;
+    }
+
+    // year or id: numeric comparison
+    return (a[sort] - b[sort]) * direction || a.id - b.id;
+  });
+}
+
+function paginate(books, page, limit) {
+  const start = (page - 1) * limit;
+  return books.slice(start, start + limit); // slice returns a new array
+}
+
 // ---------- Routes ----------
 
 // GET /api/books -> list with query options
@@ -68,7 +96,8 @@ app.get('/api/books', async (req, res) => {
   }
 
   const books = await getAllBooks();
-  const result = filterBooks(books, parsed.options);
+  const { sort, order, page, limit } = parsed.options;
+  const result = paginate(sortBooks(filterBooks(books, parsed.options), sort, order), page, limit);
   res.status(200).json(result);
 });
 

@@ -2,6 +2,7 @@
 
 export const GENRES = ['fiction', 'non-fiction', 'science', 'history', 'fantasy', 'other'];
 export const BOOK_FIELDS = ['title', 'author', 'year', 'genre', 'read', 'rating'];
+
 const MIN_YEAR = 1000;
 const MAX_TEXT_LENGTH = 100;
 
@@ -84,6 +85,7 @@ export function validateBook(input) {
     },
   };
 }
+
 // For PATCH: keep only known book fields that were actually sent.
 // Unknown fields (and "id") are dropped. Builds a new object.
 export function pickBookFields(body) {
@@ -91,9 +93,12 @@ export function pickBookFields(body) {
     BOOK_FIELDS.filter((field) => Object.hasOwn(body, field)).map((field) => [field, body[field]])
   );
 }
+
 // ---------- Query options for GET /api/books ----------
 
 const LIST_QUERY_PARAMS = ['genre', 'read', 'q', 'sort', 'order', 'limit', 'page'];
+const SORT_FIELDS = ['title', 'author', 'year', 'rating'];
+const MAX_LIMIT = 50;
 
 // Returns { options } with clean values, or { error } with a message.
 // Query values are strings; a repeated parameter arrives as an array.
@@ -104,7 +109,7 @@ export function parseListQuery(query) {
   }
 
   const errors = [];
-  const { genre, read, q } = query;
+  const { genre, read, q, sort, order, limit, page } = query;
 
   if (genre !== undefined && !GENRES.includes(genre)) {
     errors.push(`genre must be one of: ${GENRES.join(', ')}`);
@@ -118,6 +123,22 @@ export function parseListQuery(query) {
     errors.push(`q must be at most ${MAX_TEXT_LENGTH} characters`);
   }
 
+  if (sort !== undefined && !SORT_FIELDS.includes(sort)) {
+    errors.push(`sort must be one of: ${SORT_FIELDS.join(', ')}`);
+  }
+
+  if (order !== undefined && order !== 'asc' && order !== 'desc') {
+    errors.push('order must be "asc" or "desc"');
+  }
+
+  if (limit !== undefined && (!/^[1-9]\d*$/.test(limit) || Number(limit) > MAX_LIMIT)) {
+    errors.push(`limit must be an integer from 1 to ${MAX_LIMIT}`);
+  }
+
+  if (page !== undefined && (!/^[1-9]\d*$/.test(page) || !Number.isSafeInteger(Number(page)))) {
+    errors.push('page must be a positive integer');
+  }
+
   if (errors.length > 0) {
     return { error: errors.join('; ') };
   }
@@ -127,6 +148,10 @@ export function parseListQuery(query) {
       genre: genre ?? null,
       read: read === undefined ? null : read === 'true',
       q: q?.trim().toLowerCase() || null, // empty search = no filter
+      sort: sort ?? 'id', // default: by id
+      order: order ?? 'asc',
+      limit: limit === undefined ? MAX_LIMIT : Number(limit),
+      page: page === undefined ? 1 : Number(page),
     },
   };
 }
