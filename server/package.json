@@ -4,8 +4,9 @@
   "description": "Reading List REST API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node --env-file=.env server.js",
+    "dev": "node --watch --env-file=.env server.js",
+    "seed": "node --env-file=.env seed.js"
   },
   "keywords": [],
   "author": "hüma berra kolukısa",
