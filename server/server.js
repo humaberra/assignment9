@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import mongoose from 'mongoose';
 import {
   getAllBooks,
   getBookById,
@@ -21,6 +22,7 @@ const app = express();
 // Configuration from environment variables (with fallbacks)
 const PORT = Number(process.env.PORT) || 3000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/readinglist';
 
 // CORS: allow ONLY the client's exact origin (never '*')
 app.use(cors({ origin: CLIENT_ORIGIN }));
@@ -267,6 +269,16 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: 'Something went wrong' });
 });
+
+// Connect to MongoDB BEFORE accepting requests.
+// A short serverSelectionTimeoutMS makes a missing database fail fast.
+try {
+  await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
+  console.log(`Connected to MongoDB at ${MONGODB_URI}`);
+} catch (error) {
+  console.error(`Could not connect to MongoDB at ${MONGODB_URI}: ${error.message}`);
+  process.exit(1);
+}
 
 app.listen(PORT, (error) => {
   if (error) {
